@@ -13,7 +13,7 @@ const upload = multer({ dest: 'upload' }); //  naming the folder where the file 
 
 app.use(express.urlencoded({ extended: true })); // setting the middleware to get the alphanumeric characters fields
 
-app.set('view engine', 'ejs'); // serring the template engine
+app.set('view engine', 'ejs'); // setting the template engine
 
 app.get('/', (req, res) => {
   // what happens when visit the home page
