@@ -1,4 +1,5 @@
-require('dotenv').config(); // setting the config for .env file to get the variables from the env (envirement) variables
+/* Loading the environment variables from the .env file. */
+require('dotenv').config();
 require('colors');
 const express = require('express');
 const app = express();
@@ -7,64 +8,76 @@ const connectDB = require('./config');
 const bcrypt = require('bcrypt');
 const File = require('./models/file');
 
-connectDB(); // onload connect the database
+/* Connecting to the database. */
+connectDB();
 
-const upload = multer({ dest: 'upload' }); //  naming the folder where the file will be stored when get from the font-End
+/* Setting the destination of the file to be uploaded. */
+const upload = multer({ dest: 'upload' });
+/* A middleware that is used to parse the body of the request. */
+app.use(express.urlencoded({ extended: true }));
+/* Setting the view engine to ejs. */
+app.set('view engine', 'ejs');
 
-app.use(express.urlencoded({ extended: true })); // setting the middleware to get the alphanumeric characters fields
-
-app.set('view engine', 'ejs'); // setting the template engine
-
+/* This is the route for the home page. When the user visits the home page, the index.ejs file is
+rendered. */
 app.get('/', (req, res) => {
-  // what happens when visit the home page
   res.render('index');
 });
 
+/* This is a route that is used to upload a file. The upload.single('file') is a middleware that is
+used to upload a single file. The file is uploaded to the upload folder. */
 app.post('/upload', upload.single('file'), async (req, res) => {
-  // what happens when visit the home page
   const fileData = {
-    // setting the file object to be uploaded
-    path: req.file.path, // the path to the file to be uploaded
-    orignalName: req.file.originalname, // the name of the file to be uploaded
+    /* Creating a fileData object with the path and original name of the file. */
+    path: req.file.path,
+    orignalName: req.file.originalname,
   };
 
+  /* This is a condition that checks if the password field is not empty. If it is not empty, the
+  password is hashed and stored in the fileData object. */
   if (req.body.password != null && req.body.password !== '') {
-    // if the password is not set and empty password
-    fileData.password = await bcrypt.hash(req.body.password, 10); // converting password to encrypted hash string
+    fileData.password = await bcrypt.hash(req.body.password, 10);
   }
 
+  /* This is a callback function that is called when the file is uploaded. The fileLink is the link to
+  the file that is uploaded. */
   File.create(fileData).then((result) => {
-    // storing the file into mongodb
-    res.render('index', { fileLink: `${req.headers.origin}/file/${result.id}` }); // rendering the home page with the file link
+    res.render('index', { fileLink: `${req.headers.origin}/file/${result.id}` });
   });
 });
 
+/**
+ * It checks if the file has a password, if it does, it checks if the password is correct, if it is, it
+ * increments the download count and downloads the file.
+ * @param req - The request object.
+ * @param res - The response object.
+ * @returns The file is being returned to the user.
+ */
 const handleDownload = async (req, res) => {
-  // callback function to be called when clicked on link
-  const file = await File.findById(req.params.id); // get the file from the database by Id
+  /* Finding the file in the database by the id. */
+  const file = await File.findById(req.params.id);
 
   if (file.password != null) {
-    // if password is not set when sharing
     if (req.body.password == null) {
-      // if password is not type after clicking the link
-      res.render('password'); // re-render password page
+      res.render('password');
       return;
     }
 
     if (!(await bcrypt.compare(req.body.password, file.password))) {
-      // if password is not matched
-      res.render('password', { error: true }); // re-render password page
+      res.render('password', { error: true });
     }
   }
 
-  file.downloadCount += 1; // increase pasword count
+  file.downloadCount += 1;
 
-  await file.save(); // save the file data into database with updated passwordCount
+  await file.save();
 
-  res.download(file.path, file.orignalName); // download the file when all is done
+  res.download(file.path, file.orignalName);
 };
 
-app.route('/file/:id').get(handleDownload).post(handleDownload); // onsame route run two mathods get and post
+/* A route that is used to download a file. The get method is used to render the password page if the
+file has a password. The post method is used to download the file. */
+app.route('/file/:id').get(handleDownload).post(handleDownload);
 
-const port = process.env.PORT; // geting the port from the environment variable and setting to post variable
+const port = process.env.PORT;
 app.listen(port, () => console.log(`listening on http://localhost:${port}`));
